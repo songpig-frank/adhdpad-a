@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import logo from './adhdpadlogo.webp';
 import { db } from './firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, orderBy, query } from 'firebase/firestore';
 import './App.css';
 
 function HomeScreen() {
@@ -100,6 +100,35 @@ function HomeScreen() {
 
 function VoiceRecorderScreen() {
   const [isRecording, setIsRecording] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [audioURL, setAudioURL] = React.useState('');
+  const [transcribedText, setTranscribedText] = React.useState('');
+  const [savedTranscriptions, setSavedTranscriptions] = React.useState([]);
+  const [error, setError] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [modalData, setModalData] = React.useState({ isOpen: false, title: '', summary: '', transcription: '' });
+
+  const fetchTranscriptions = async () => {
+    try {
+      setIsLoading(true);
+      const transcriptionsRef = collection(db, 'transcriptions');
+      const q = query(transcriptionsRef, orderBy('timestamp', 'desc')); // Add timestamp field and sort by it
+      const querySnapshot = await getDocs(q);
+      const transcriptionsList = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setSavedTranscriptions(transcriptionsList);
+    } catch (error) {
+      setError('Error fetching transcriptions: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchTranscriptions();
+  }, []);
 
   const clearAll = async () => {
     if (window.confirm('Are you sure you want to delete all transcriptions and tasks? This cannot be undone.')) {
@@ -126,28 +155,7 @@ function VoiceRecorderScreen() {
       }
     }
   };
-  const [audioURL, setAudioURL] = React.useState('');
-  const [transcribedText, setTranscribedText] = React.useState('');
-  const [savedTranscriptions, setSavedTranscriptions] = React.useState([]);
-  const [error, setError] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [modalData, setModalData] = React.useState({ isOpen: false, title: '', summary: '', transcription: '' });
 
-  React.useEffect(() => {
-    const fetchTranscriptions = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, 'transcriptions'));
-        const transcriptionsList = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setSavedTranscriptions(transcriptionsList);
-      } catch (error) {
-        setError('Error fetching transcriptions: ' + error.message);
-      }
-    };
-    fetchTranscriptions();
-  }, []);
   const mediaRecorder = React.useRef(null);
   const audioChunks = React.useRef([]);
   const recognition = React.useRef(null);
@@ -233,60 +241,36 @@ function VoiceRecorderScreen() {
     }
 
     try {
-      setIsLoading(true);
+      setIsSaving(true);
       setError('');
       const aiResult = await generateTitleAndSummary(transcribedText);
       const title = aiResult?.title || transcribedText.split('.')[0];
       const description = aiResult?.summary || transcribedText.substring(0, 100);
-      try {
-        if (!db) {
-          throw new Error("Firebase database is not initialized");
-        }
-
-        const transcriptionsRef = collection(db, 'transcriptions');
-        const docRef = await addDoc(transcriptionsRef, {
-          title,
-          description,
-          text: transcribedText,
-          timestamp: new Date().toLocaleString(),
-          createdAt: new Date()
-        });
-
-        const newTranscription = {
-          id: docRef.id,
-          title,
-          description,
-          text: transcribedText,
-          timestamp: new Date().toLocaleString()
-        };
-
-        setSavedTranscriptions(prev => [...prev, newTranscription]);
-        setTranscribedText('');
-        setAudioURL('');
-
-        if (isRecording) {
-          stopRecording();
-        }
-
-        alert("Transcription saved successfully!");
-      } catch (error) {
-        console.error("Error saving transcription:", error);
-        setError(`Failed to save: ${error.message}`);
-      } finally {
-        setIsLoading(false);
+      
+      if (!db) {
+        throw new Error("Firebase database is not initialized");
       }
-      setModalData({ 
-          isOpen: true, 
-          title: aiResult.title, 
-          summary: aiResult.summary, 
-          transcription: transcribedText,
-          model: aiResult.model || 'GPT-3.5',
-          success: aiResult.success || false,
-          tokens: aiResult.tokens || {total: 0} //Added to handle potential missing tokens
-        });
+
+      const transcriptionsRef = collection(db, 'transcriptions');
+      await addDoc(transcriptionsRef, {
+        title,
+        description,
+        text: transcribedText,
+        timestamp: new Date().toISOString() // Add timestamp
+      });
+
+      // Clear the form
+      setTranscribedText('');
+      setAudioURL('');
+      
+      // Refresh the list
+      await fetchTranscriptions();
+      
     } catch (error) {
-      console.error("Error generating title and summary:", error);
-      setError("AI processing failed. Please try again.");
+      console.error("Error saving transcription:", error);
+      setError("Failed to save transcription: " + error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -319,9 +303,9 @@ function VoiceRecorderScreen() {
           <button 
             className="button" 
             onClick={saveTranscription} 
-            disabled={!transcribedText.trim() || isLoading}
+            disabled={!transcribedText.trim() || isSaving}
           >
-            {isLoading ? 'Saving...' : 'Save Transcription'}
+            {isSaving ? 'Saving...' : 'Save Transcription'}
           </button>
           <button 
             className="button"
@@ -347,6 +331,7 @@ function VoiceRecorderScreen() {
         </div>
         <div className="saved-transcriptions">
           <h3>Saved Transcriptions</h3>
+          {isLoading && <div className="loading-indicator">Loading transcriptions...</div>}
           {savedTranscriptions.map(item => (
             <div key={item.id} className="transcription-item">
               <h4>{item.title}</h4>
@@ -412,40 +397,29 @@ function TaskListScreen() {
   const [tasks, setTasks] = React.useState([]);
   const [newTask, setNewTask] = React.useState('');
   const [searchQuery, setSearchQuery] = React.useState('');
-
-  React.useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.task-menu') && !event.target.closest('.task-menu-dots')) {
-        setTasks(currentTasks => 
-          currentTasks.map(task => ({ ...task, menuOpen: false }))
-        );
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState({ show: false, taskId: null });
 
-  const filteredTasks = tasks.filter(task => 
-    task.text?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const fetchTasks = async () => {
+    try {
+      setIsLoading(true);
+      const tasksRef = collection(db, 'tasks');
+      const q = query(tasksRef, orderBy('createdAt', 'desc')); // Sort by creation time, newest first
+      const querySnapshot = await getDocs(q);
+      const tasksList = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setTasks(tasksList);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   React.useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, 'tasks'));
-        const tasksList = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setTasks(tasksList);
-      } catch (error) {
-        console.error("Error fetching tasks:", error);
-      }
-    };
     fetchTasks();
   }, []);
 
@@ -461,16 +435,15 @@ function TaskListScreen() {
     return `${now.getFullYear()}${day.toString().padStart(3, '0')}${time}`;
   };
 
-  const [isProcessing, setIsProcessing] = React.useState(false);
-
   const addTask = async (e) => {
     e.preventDefault();
     if (newTask.trim()) {
       try {
-        setIsProcessing(true);
+        setIsSaving(true);
         const aiResults = await generateTitleAndSummary(newTask);
         const title = aiResults.title || newTask.substring(0, 50);
         const description = aiResults.summary || newTask;
+        const timestamp = new Date().toISOString();
 
         const taskRef = await addDoc(collection(db, 'tasks'), {
           julianId: generateJulianId(),
@@ -479,20 +452,20 @@ function TaskListScreen() {
           text: newTask,
           completed: false,
           urgent: false,
-          createdAt: new Date().toLocaleString()
+          createdAt: timestamp
         });
 
-        setTasks([...tasks, {
-          id: taskRef.id,
-          title,
-          description,
-          text: newTask,
-          completed: false,
-          createdAt: new Date().toLocaleString()
-        }]);
+        // Clear the input
         setNewTask('');
+        
+        // Refresh the task list to show the new task
+        await fetchTasks();
+        
       } catch (error) {
         console.error("Error adding task:", error);
+        alert("Failed to add task. Please try again.");
+      } finally {
+        setIsSaving(false);
       }
     }
   };
@@ -525,6 +498,12 @@ function TaskListScreen() {
     await deleteTask(deleteConfirmation.taskId);
     setDeleteConfirmation({ show: false, taskId: null });
   };
+
+  const filteredTasks = tasks.filter(task => 
+    task.text?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    task.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="container">
@@ -563,9 +542,26 @@ function TaskListScreen() {
             placeholder="Enter a new task..."
             className="task-input"
             rows="3"
+            disabled={isSaving}
           />
-          <button type="submit" className="button">Add Task</button>
+          <button 
+            type="submit" 
+            className="button"
+            disabled={!newTask.trim() || isSaving}
+          >
+            {isSaving ? 'Adding Task...' : 'Add Task'}
+          </button>
         </form>
+        {isLoading && (
+          <div className="loading-indicator">
+            Loading tasks...
+          </div>
+        )}
+        {isSaving && (
+          <div className="saving-indicator">
+            Processing and saving task...
+          </div>
+        )}
         <div className="task-list">
           {filteredTasks.map(task => (
             <div 
