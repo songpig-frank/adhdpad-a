@@ -1,6 +1,6 @@
-
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_APP_FIREBASE_API_KEY,
@@ -16,10 +16,12 @@ if (!firebaseConfig.apiKey) {
 }
 
 let db;
+let storage;
 
 try {
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
+  storage = getStorage(app);
   console.log("Firebase connection successful!");
 } catch (error) {
   console.error("Error initializing Firebase:", error);
@@ -40,4 +42,4 @@ const testConnection = async () => {
 
 testConnection();
 
-export { db };
+export { db, storage };

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import logo from './adhdpadlogo.webp';
-import { db } from './firebase';
+import { db, storage } from './firebase';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, orderBy, query } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import './App.css';
 
 function HomeScreen() {
@@ -400,6 +401,13 @@ function TaskListScreen() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState({ show: false, taskId: null });
+  const [activeMenu, setActiveMenu] = React.useState(null);
+  const [attachments, setAttachments] = React.useState([]);
+  const [showAttachmentModal, setShowAttachmentModal] = React.useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [previewUrls, setPreviewUrls] = useState([]);
+  const fileInputRef = useRef(null);
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
 
   const fetchTasks = async () => {
     try {
@@ -423,6 +431,22 @@ function TaskListScreen() {
     fetchTasks();
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.task-menu-dots') && !e.target.closest('.task-menu')) {
+        setActiveMenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMenuAction = async (action, taskId) => {
+    await action();
+    setActiveMenu(null);
+  };
+
   const generateJulianId = () => {
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 0);
@@ -435,6 +459,73 @@ function TaskListScreen() {
     return `${now.getFullYear()}${day.toString().padStart(3, '0')}${time}`;
   };
 
+  const handleUrlAdd = () => {
+    if (isValidUrl(urlInput)) {
+      setAttachments(prev => [...prev, { type: 'url', content: urlInput }]);
+      setUrlInput('');
+      setShowAttachmentModal(false);
+    } else {
+      alert('Please enter a valid URL (e.g., https://example.com)');
+    }
+  };
+
+  const handleAttachment = async (files) => {
+    const newFiles = Array.from(files).filter(file => {
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`File "${file.name}" exceeds the 10MB size limit`);
+        return false;
+      }
+      return true;
+    }).map(file => {
+      const preview = URL.createObjectURL(file);
+      return {
+        type: 'file',
+        file,
+        preview,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type
+      };
+    });
+
+    setAttachments(prev => [...prev, ...newFiles]);
+  };
+
+  const handlePaste = (e) => {
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    if (clipboardData.files.length > 0) {
+      e.preventDefault();
+      handleAttachment(clipboardData.files);
+    }
+
+    const text = clipboardData.getData('text');
+    if (text && isValidUrl(text)) {
+      e.preventDefault();
+      setAttachments(prev => [...prev, { type: 'url', content: text }]);
+    }
+  };
+
+  const isValidUrl = (string) => {
+    try {
+      const url = new URL(string);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (_) {
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      attachments.forEach(attachment => {
+        if (attachment.type === 'file' && attachment.preview) {
+          URL.revokeObjectURL(attachment.preview);
+        }
+      });
+    };
+  }, [attachments]);
+
   const addTask = async (e) => {
     e.preventDefault();
     if (newTask.trim()) {
@@ -444,6 +535,35 @@ function TaskListScreen() {
         const title = aiResults.title || newTask.substring(0, 50);
         const description = aiResults.summary || newTask;
         const timestamp = new Date().toISOString();
+        
+        // Upload files to Firebase Storage and get URLs
+        const processedAttachments = await Promise.all(
+          attachments.map(async (att) => {
+            if (att.type === 'url') {
+              return {
+                type: 'url',
+                content: att.content
+              };
+            } else {
+              const fileRef = ref(storage, `attachments/${Date.now()}-${att.name}`);
+              const customMetadata = {
+                contentType: att.mimeType || 'application/octet-stream',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, HEAD',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Content-Length, User-Agent, x-goog-resumable'
+              };
+              await uploadBytes(fileRef, att.file, customMetadata);
+              const downloadUrl = await getDownloadURL(fileRef);
+              return {
+                type: 'file',
+                name: att.name,
+                size: att.size,
+                mimeType: att.mimeType,
+                url: downloadUrl
+              };
+            }
+          })
+        );
 
         const taskRef = await addDoc(collection(db, 'tasks'), {
           julianId: generateJulianId(),
@@ -452,13 +572,15 @@ function TaskListScreen() {
           text: newTask,
           completed: false,
           urgent: false,
-          createdAt: timestamp
+          createdAt: timestamp,
+          attachments: processedAttachments
         });
 
-        // Clear the input
+        // Clear the input and attachments
         setNewTask('');
+        setAttachments([]);
         
-        // Refresh the task list to show the new task
+        // Refresh the task list
         await fetchTasks();
         
       } catch (error) {
@@ -536,14 +658,91 @@ function TaskListScreen() {
           style={{ marginBottom: '10px' }}
         />
         <form onSubmit={addTask} className="task-form">
-          <textarea
-            value={newTask}
-            onChange={(e) => setNewTask(e.target.value)}
-            placeholder="Enter a new task..."
-            className="task-input"
-            rows="3"
-            disabled={isSaving}
-          />
+          <div className="task-input-container">
+            <textarea
+              value={newTask}
+              onChange={(e) => setNewTask(e.target.value)}
+              onPaste={handlePaste}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleAttachment(e.dataTransfer.files);
+              }}
+              onDragOver={(e) => e.preventDefault()}
+              placeholder="Enter a new task..."
+              className="task-input"
+              rows="3"
+              disabled={isSaving}
+            />
+            {attachments.length > 0 && (
+              <div className="attachments-preview">
+                {attachments.map((attachment, index) => (
+                  <div key={index} className="attachment-item">
+                    {attachment.type === 'file' ? (
+                      <div className="file-preview">
+                        {attachment.mimeType.startsWith('image/') ? (
+                          <img src={attachment.preview} alt={attachment.name} />
+                        ) : (
+                          <div className="file-icon">📄</div>
+                        )}
+                        <span>{attachment.name}</span>
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            setAttachments(prev => prev.filter((_, i) => i !== index));
+                            if (attachment.preview) {
+                              URL.revokeObjectURL(attachment.preview);
+                            }
+                          }}
+                          className="remove-attachment"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="url-preview">
+                        <a href={attachment.content} target="_blank" rel="noopener noreferrer">
+                          🔗 {attachment.content}
+                        </a>
+                        <button 
+                          type="button"
+                          onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                          className="remove-attachment"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="attachment-controls">
+              <button
+                type="button"
+                className="attachment-button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach file or image"
+              >
+                📎
+              </button>
+              <button
+                type="button"
+                className="attachment-button"
+                onClick={() => setShowAttachmentModal(true)}
+                title="Add link"
+              >
+                🔗
+              </button>
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => handleAttachment(e.target.files)}
+              style={{ display: 'none' }}
+              multiple
+              accept="image/*,.pdf,.doc,.docx,.txt"
+            />
+          </div>
           <button 
             type="submit" 
             className="button"
@@ -594,42 +793,62 @@ function TaskListScreen() {
                 </button>
               </div>
               <div className="task-content">
+                <div className="task-id">ID: {task.julianId}</div>
                 <div className="task-subtitle-container">
                   <textarea
                     className="task-subtitle"
-                    value={task.title || ''}
-                    placeholder="Enter subtitle..."
-                    onChange={async (e) => {
-                      const newSubtitle = e.target.value;
-                      const taskRef = doc(db, 'tasks', task.id);
-                      await updateDoc(taskRef, { subtitle: newSubtitle });
-                      setTasks(tasks.map(t => 
-                        t.id === task.id ? { ...t, subtitle: newSubtitle } : t
-                      ));
-                    }}
+                    value={task.title}
+                    readOnly
                   />
                 </div>
-                <div className="task-description">{task.description}</div>
-              </div>
-              <div className="task-content">
-                <div className="task-id">ID: {task.julianId}</div>
-                
-                {task.expanded && (
-                  <>
-                    <textarea
-                      className="task-full-text-input"
-                      value={task.text}
-                      onChange={async (e) => {
-                        const newText = e.target.value;
-                        const taskRef = doc(db, 'tasks', task.id);
-                        await updateDoc(taskRef, { text: newText });
-                        setTasks(tasks.map(t => 
-                          t.id === task.id ? { ...t, text: newText } : t
-                        ));
-                      }}
-                    />
-                    <small>{task.createdAt}</small>
-                  </>
+                <div className={`task-description ${task.expanded ? 'expanded' : ''}`}>
+                  {task.description}
+                </div>
+                {task.attachments && task.attachments.length > 0 && (
+                  <div className="task-attachments">
+                    <h4>Attachments:</h4>
+                    <div className="attachments-list">
+                      {task.attachments.map((attachment, index) => (
+                        <div key={index} className="task-attachment-item">
+                          {attachment.type === 'url' ? (
+                            <a 
+                              href={attachment.content} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="attachment-link"
+                            >
+                              🔗 {new URL(attachment.content).hostname}
+                            </a>
+                          ) : (
+                            <div className="attachment-file">
+                              {attachment.mimeType?.startsWith('image/') ? (
+                                <a 
+                                  href={attachment.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="image-preview"
+                                >
+                                  📷 {attachment.name}
+                                </a>
+                              ) : (
+                                <a 
+                                  href={attachment.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="file-preview"
+                                >
+                                  📄 {attachment.name}
+                                </a>
+                              )}
+                              <span className="file-size">
+                                {(attachment.size / (1024 * 1024)).toFixed(2)}MB
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 <div className="button-group">
                   <button 
@@ -659,30 +878,33 @@ function TaskListScreen() {
                 className="task-menu-dots"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setTasks(tasks.map(t => 
-                    t.id === task.id ? { ...t, menuOpen: !t.menuOpen } : { ...t, menuOpen: false }
-                  ));
+                  setActiveMenu(activeMenu === task.id ? null : task.id);
                 }}
               >
                 ⋮
               </div>
-              {task.menuOpen && (
-                <div className="task-menu">
-                  <button onClick={() => toggleTask(task.id)}>
+              {activeMenu === task.id && (
+                <div 
+                  className="task-menu"
+                  onMouseLeave={() => setActiveMenu(null)}
+                >
+                  <button onClick={() => handleMenuAction(async () => {
+                    await toggleTask(task.id);
+                  }, task.id)}>
                     {task.completed ? '↩️ Mark Incomplete' : '✓ Mark Complete'}
                   </button>
-                  <button onClick={async () => {
+                  <button onClick={() => handleMenuAction(async () => {
                     const taskRef = doc(db, 'tasks', task.id);
                     await updateDoc(taskRef, { urgent: !task.urgent });
                     setTasks(tasks.map(t => 
-                      t.id === task.id ? { ...t, urgent: !task.urgent, menuOpen: false } : t
+                      t.id === task.id ? { ...t, urgent: !task.urgent } : t
                     ));
-                  }}>
+                  }, task.id)}>
                     {task.urgent ? '📅 Remove Urgent' : '🚨 Mark Urgent'}
                   </button>
-                  <button onClick={() => {
+                  <button onClick={() => handleMenuAction(async () => {
                     setDeleteConfirmation({ show: true, taskId: task.id });
-                  }}>
+                  }, task.id)}>
                     🗑️ Delete
                   </button>
                 </div>
@@ -722,6 +944,27 @@ function TaskListScreen() {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showAttachmentModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Add Link</h3>
+            <input
+              type="url"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              placeholder="Enter URL (e.g., https://example.com)"
+              className="url-input"
+            />
+            <div className="modal-actions">
+              <button onClick={() => {
+                setUrlInput('');
+                setShowAttachmentModal(false);
+              }}>Cancel</button>
+              <button onClick={handleUrlAdd}>Add Link</button>
             </div>
           </div>
         </div>
@@ -843,20 +1086,16 @@ ${transcription}
 
 async function generateTitleAndSummary(text) {
   try {
-    // Enhanced cleanup for speech recognition text
     const cleanedText = text
       .split(/\s+/)
-      // Remove consecutive duplicate words and phrases
       .reduce((acc, word, index, array) => {
         const prevThreeWords = acc.slice(-3).join(' ');
         const nextThreeWords = array.slice(index, index + 3).join(' ');
 
-        // Skip if word is part of a repeated phrase
         if (prevThreeWords.includes(nextThreeWords) && nextThreeWords.length > 5) {
           return acc;
         }
 
-        // Skip consecutive duplicate words
         if (acc[acc.length - 1] === word) {
           return acc;
         }
@@ -873,7 +1112,6 @@ async function generateTitleAndSummary(text) {
     return result;
   } catch (error) {
     console.error('Error generating title and summary:', error);
-    // Fallback to basic title/summary if AI fails
     return {
       title: text.split('.')[0],
       summary: text.substring(0, 100)

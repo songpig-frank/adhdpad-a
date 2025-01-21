@@ -475,108 +475,49 @@ audio {
 }
 
 .task-menu-dots {
-  position: absolute;
-  top: 50%;
-  right: 16px;
-  transform: translateY(-50%);
   cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  transition: background 0.2s;
-}
-
-.task-menu-dots:hover {
-  background: rgba(0,0,0,0.05);
+  padding: 0 8px;
+  font-size: 20px;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
 }
 
 .task-menu {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  min-width: 160px;
-  z-index: 1000;
-  padding: 8px 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.task-menu button {
-  width: 100%;
-  padding: 8px 16px;
-  text-align: left;
-  background: none;
-  border: none;
-  font-size: 14px;
-  color: #333;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.task-menu button:hover {
-  background-color: #f5f5f5;
-}
-
-.task-menu-dots {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 4px;
-  color: #666;
-  transition: background-color 0.2s;
-}
-
-.task-menu-dots:hover {
-  background-color: #f5f5f5;
-}
-
-.task-menu button:hover {
-  background-color: #f5f5f5;
-}
-
-.task-menu-dots {
-  position: absolute;
+  right: 40px;
   top: 50%;
   transform: translateY(-50%);
-  right: 12px;
-  padding: 4px 8px;
-  cursor: pointer;
+  background: white;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  transition: background 0.2s;
-  color: #666;
-  font-size: 24px;
-  font-weight: bold;
-}
-
-.task-menu-dots:hover {
-  background: #f5f5f5;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  transition: opacity 0.2s ease;
 }
 
 .task-menu button {
-  width: 100%;
-  padding: 8px 16px;
-  text-align: left;
-  background: none;
+  padding: 8px 12px;
   border: none;
+  background: none;
+  text-align: left;
   cursor: pointer;
-  font-size: 14px;
-  color: #333;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  white-space: nowrap;
+  width: 100%;
   transition: background-color 0.2s;
 }
 
 .task-menu button:hover {
   background-color: #f5f5f5;
+}
+
+.task-menu button:not(:last-child) {
+  border-bottom: 1px solid #eee;
 }
 
 .task-content {
@@ -1014,4 +955,251 @@ audio {
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.task-input-container {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.attachment-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.attachment-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.attachment-button:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.url-input {
+  width: 100%;
+  padding: 8px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.modal-actions button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.modal-actions button:first-child {
+  background: #f5f5f5;
+}
+
+.modal-actions button:last-child {
+  background: #4CAF50;
+  color: white;
+}
+
+.modal-actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.attachment-preview {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.attachment-preview img {
+  max-width: 100px;
+  max-height: 100px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.attachment-preview a {
+  color: #4CAF50;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.attachment-preview a:hover {
+  text-decoration: underline;
+}
+
+.attachments-preview {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.attachment-item {
+  position: relative;
+  padding: 8px;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 300px;
+}
+
+.file-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-preview img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.file-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.url-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.url-preview a {
+  color: #4CAF50;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.url-preview a:hover {
+  text-decoration: underline;
+}
+
+.remove-attachment {
+  background: none;
+  border: none;
+  color: #dc3545;
+  font-size: 18px;
+  padding: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.remove-attachment:hover {
+  opacity: 1;
+}
+
+.task-attachments {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+}
+
+.task-attachments h4 {
+  margin: 0 0 8px 0;
+  color: #495057;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.attachments-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-attachment-item {
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.task-attachment-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: #f8f9fa;
+}
+
+.attachment-link, .image-preview, .file-preview {
+  color: #2196F3;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.attachment-link:hover, .image-preview:hover, .file-preview:hover {
+  text-decoration: underline;
+  color: #1976D2;
+}
+
+.attachment-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.file-size {
+  color: #6c757d;
+  font-size: 12px;
+  margin-left: auto;
 }
