@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## Project Information
+- Project Path: `/Volumes/ExtDrv/cursor_builds/adhdpad-a`
+- Development Environment: macOS (darwin 24.2.0)
+
+## Development Environment Changes [2024-01-21]
+- **[8:57 AM - 10:27 AM PST]** - Vite Server Updates
+  - Vite version progression: v5.0.0 → v5.4.14 → v6.0.11
+  - Port migrations: 5173 → 5174 → 5175 → 5176
+  - Fixed dependency issues with node modules
+  - Server stability improvements
+
 ## Bug Fixes
 
 ### [2024-01-21]
