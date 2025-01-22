@@ -773,25 +773,6 @@ function TaskListScreen() {
                 }
               }}
             >
-              <div className="task-header-actions">
-                <button 
-                  onClick={() => {
-                    const taskDetails = `Task ID: ${task.julianId}\nTitle: ${task.title}\nDescription: ${task.description}`;
-                    navigator.clipboard.writeText(taskDetails);
-                  }}
-                >
-                  📋
-                </button>
-                <button 
-                  onClick={() => {
-                    const taskDetails = `Task ID: ${task.julianId}\nTitle: ${task.title}\nDescription: ${task.description}`;
-                    const mailtoLink = `mailto:?subject=Task Details - ${task.title}&body=${encodeURIComponent(taskDetails)}`;
-                    window.location.href = mailtoLink;
-                  }}
-                >
-                  📧
-                </button>
-              </div>
               <div className="task-content">
                 <div className="task-id">ID: {task.julianId}</div>
                 <div className="task-subtitle-container">
@@ -801,9 +782,50 @@ function TaskListScreen() {
                     readOnly
                   />
                 </div>
-                <div className={`task-description ${task.expanded ? 'expanded' : ''}`}>
+                <div 
+                  className={`task-description ${task.expanded ? 'expanded' : ''}`}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.scrollTop = 0;
+                  }}
+                >
+                  <div className="section-header">
+                    <h4>Summary:</h4>
+                    <div className="section-metadata">
+                      <div className="username-display" data-tooltip="Created by John Doe">
+                        <span className="username-icon">👤</span>
+                      </div>
+                      {new Date(task.createdAt).toLocaleString('en-US', { 
+                        timeZone: 'America/Chicago',
+                        dateStyle: 'medium',
+                        timeStyle: 'short'
+                      })}
+                    </div>
+                  </div>
                   {task.description}
                 </div>
+                {task.expanded && task.text && (
+                  <div 
+                    className="task-full-text"
+                    onMouseLeave={(e) => {
+                      e.currentTarget.scrollTop = 0;
+                    }}
+                  >
+                    <div className="section-header">
+                      <h4>Original Transcript:</h4>
+                      <div className="section-metadata">
+                        <div className="username-display" data-tooltip="Created by John Doe">
+                          <span className="username-icon">👤</span>
+                        </div>
+                        {new Date(task.createdAt).toLocaleString('en-US', { 
+                          timeZone: 'America/Chicago',
+                          dateStyle: 'medium',
+                          timeStyle: 'short'
+                        })}
+                      </div>
+                    </div>
+                    {task.text}
+                  </div>
+                )}
                 {task.attachments && task.attachments.length > 0 && (
                   <div className="task-attachments">
                     <h4>Attachments:</h4>
@@ -850,29 +872,148 @@ function TaskListScreen() {
                     </div>
                   </div>
                 )}
-                <div className="button-group">
-                  <button 
-                    className="expand-button"
-                    onClick={() => {
-                      const updatedTasks = tasks.map(t => 
-                        t.id === task.id ? { ...t, expanded: !t.expanded } : t
-                      );
-                      setTasks(updatedTasks);
-                    }}
-                  >
-                    {task.expanded ? 'Collapse' : 'Expand'}
-                  </button>
-                  {task.expanded && (
-                    <button 
-                      className="ai-assist-button"
-                      onClick={() => {
-                        alert('AI Assist: This feature will help break down your idea into actionable tasks. Coming soon!');
-                      }}
-                    >
-                      🤖 AI Assist
-                    </button>
-                  )}
-                </div>
+               <div className="button-group">
+  <button 
+    className="expand-button"
+    data-tooltip={task.expanded ? "Show less details" : "Show more details"}
+    onClick={() => {
+      const updatedTasks = tasks.map(t => 
+        t.id === task.id ? { ...t, expanded: !t.expanded } : t
+      );
+      setTasks(updatedTasks);
+    }}
+  >
+    {task.expanded ? 'Collapse' : 'Expand'}
+  </button>
+  {task.expanded && (
+    <button 
+      className="ai-assist-button"
+      onClick={() => {
+        alert('AI Assist: This feature will help break down your idea into actionable tasks. Coming soon!');
+      }}
+    >
+      🤖 AI Assist
+    </button>
+  )}
+</div>
+              </div>
+              <div className="task-actions">
+                <button 
+                  className="action-button"
+                  data-tooltip="Copy task details to clipboard"
+                  onClick={() => {
+                    const attachmentsList = task.attachments?.map((att, index) => 
+                      att.type === 'url' ? 
+                        `${index + 1}. Link: ${att.content}` :
+                        `${index + 1}. File: ${att.name} (${(att.size / (1024 * 1024)).toFixed(2)}MB)`
+                    ).join('\n') || 'No attachments';
+
+                    const taskDetails = 
+`Task Details (ID: ${task.julianId})
+-------------------
+Title: ${task.title}
+Created by: John Doe
+Date: ${new Date(task.createdAt).toLocaleString('en-US', { 
+  timeZone: 'America/Chicago',
+  dateStyle: 'medium',
+  timeStyle: 'short'
+})}
+
+Summary:
+${task.description}
+
+Attachments:
+${attachmentsList}`;
+
+                    navigator.clipboard.writeText(taskDetails);
+                  }}
+                >
+                  📋
+                </button>
+                <button 
+                  className="action-button"
+                  data-tooltip="Send task details via email"
+                  onClick={() => {
+                    // Plain text version
+                    const plainTextBody = `
+Task Details
+===========
+
+Task ID: ${task.julianId}
+Created by: ${task.createdBy || 'John Doe'}
+Date (CST): ${new Date(task.createdAt).toLocaleString('en-US', { 
+  timeZone: 'America/Chicago',
+  dateStyle: 'medium',
+  timeStyle: 'short'
+})}
+
+Title
+-----
+${task.title}
+
+Summary
+-------
+${task.description}
+
+Attachments
+----------
+${task.attachments?.map((att, index) => {
+  if (att.type === 'url') {
+    return `${index + 1}. Link: ${att.content}`;
+  } else {
+    return `${index + 1}. File: ${att.name} (${(att.size / (1024 * 1024)).toFixed(2)}MB)
+   Download: ${att.url}`;
+  }
+}).join('\n') || 'No attachments'}
+`;
+
+                    // HTML version
+                    const htmlBody = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h1 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">Task Details</h1>
+  
+  <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
+    <p style="margin: 5px 0;"><strong>Task ID:</strong> ${task.julianId}</p>
+    <p style="margin: 5px 0;"><strong>Created by:</strong> ${task.createdBy || 'John Doe'}</p>
+    <p style="margin: 5px 0;"><strong>Date (CST):</strong> ${new Date(task.createdAt).toLocaleString('en-US', { 
+      timeZone: 'America/Chicago',
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    })}</p>
+  </div>
+
+  <h2 style="color: #2c3e50; margin-top: 20px;">Title</h2>
+  <p style="font-size: 16px; line-height: 1.5; color: #34495e;">${task.title}</p>
+
+  <h2 style="color: #2c3e50; margin-top: 20px;">Summary</h2>
+  <p style="font-size: 16px; line-height: 1.5; color: #34495e;">${task.description}</p>
+
+  <h2 style="color: #2c3e50; margin-top: 20px;">Attachments</h2>
+  <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
+    ${task.attachments?.map((att, index) => {
+      if (att.type === 'url') {
+        return `<p style="margin: 10px 0;">
+          ${index + 1}. <a href="${att.content}" style="color: #3498db; text-decoration: none;">${att.content}</a>
+        </p>`;
+      } else {
+        return `<p style="margin: 10px 0;">
+          ${index + 1}. ${att.name} - <a href="${att.url}" style="color: #3498db; text-decoration: none;">Download</a>
+        </p>`;
+      }
+    }).join('') || 'No attachments'}
+  </div>
+</body>
+</html>`.replace(/\n/g, '');
+
+                    // Use plain text as default, with HTML as fallback
+                    const mailtoLink = `mailto:?subject=Task Details: ${task.title}&body=${encodeURIComponent(plainTextBody)}`;
+                    window.location.href = mailtoLink;
+                  }}
+                >
+                  📧
+                </button>
               </div>
               <div 
                 className="task-menu-dots"
@@ -897,7 +1038,7 @@ function TaskListScreen() {
                     const taskRef = doc(db, 'tasks', task.id);
                     await updateDoc(taskRef, { urgent: !task.urgent });
                     setTasks(tasks.map(t => 
-                      t.id === task.id ? { ...t, urgent: !task.urgent } : t
+                      t.id === task.id ? { ...t, urgent: !t.urgent } : t
                     ));
                   }, task.id)}>
                     {task.urgent ? '📅 Remove Urgent' : '🚨 Mark Urgent'}
@@ -909,25 +1050,6 @@ function TaskListScreen() {
                   </button>
                 </div>
               )}
-              <div className="task-actions-wrapper">
-                <div className="task-actions">
-                  <button 
-                    onClick={async () => {
-                      const taskRef = doc(db, 'tasks', task.id);
-                      await updateDoc(taskRef, { urgent: !task.urgent });
-                      setTasks(tasks.map(t => 
-                        t.id === task.id ? { ...t, urgent: !t.urgent } : t
-                      ));
-                    }} 
-                    className={`urgent-button ${task.urgent ? 'active' : ''}`}
-                  >
-                    Urgent
-                  </button>
-                  <button onClick={() => setDeleteConfirmation({ show: true, taskId: task.id })} className="delete-button">
-                    Delete
-                  </button>
-                </div>
-              </div>
             </div>
           ))}
         </div>

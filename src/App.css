@@ -121,16 +121,88 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
-.section-header h3 {
-  margin: 0;
+.section-header h4 {
   color: #333;
-  font-size: 1.1rem;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.section-metadata {
+  color: #777;
+  font-size: 12px;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.username-display {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  position: relative;
+}
+
+.username-icon {
+  font-size: 14px;
+  cursor: help;
+}
+
+/* Tooltip styles */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]:before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  font-size: 12px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 1000;
+}
+
+[data-tooltip]:hover:before {
+  opacity: 1;
+  visibility: visible;
+}
+
+.action-button {
+  background: none;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  height: 28px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.action-button:hover {
+  background-color: #f5f5f5;
+  transform: translateY(-1px);
 }
 
 .copy-button {
+  position: absolute;
+  left: 16px;
   padding: 5px 15px;
   background-color: #4CAF50;
   color: white;
@@ -430,6 +502,7 @@ audio {
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   width: 100%;
   margin-bottom: 8px;
+  min-height: auto;
 }
 
 .task-item.urgent {
@@ -446,43 +519,26 @@ audio {
 }
 
 .task-header-actions {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  display: flex;
-  gap: 8px;
-  z-index: 10;
-}
-
-.task-header-actions button {
-  padding: 6px 10px;
-  font-size: 16px;
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  color: #333;
-  transition: all 0.2s ease;
-}
-
-.task-header-actions button:hover {
-  background: #e0e0e0;
-  transform: translateY(-1px);
-}
-
-.task-header-actions button:hover {
-  color: #333;
+  display: none;
 }
 
 .task-menu-dots {
   cursor: pointer;
-  padding: 0 8px;
+  padding: 4px 8px;
   font-size: 20px;
   position: absolute;
-  right: 10px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 1;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.task-menu-dots:hover {
+  background-color: #f5f5f5;
 }
 
 .task-menu {
@@ -522,11 +578,12 @@ audio {
 
 .task-content {
   flex: 1;
-  padding-right: 60px;
-  padding-left: 20px;
-  overflow: hidden;
+  padding-right: 16px;
+  padding-left: 16px;
+  padding-bottom: 50px;
+  overflow: visible;
   width: 100%;
-  margin-bottom: 15px;
+  margin-bottom: 0;
 }
 
 .task-header {
@@ -539,13 +596,16 @@ audio {
 }
 
 .task-id {
+  position: absolute;
+  bottom: 16px;
+  right: 300px;
   font-size: 12px;
   color: #777;
   background-color: #f5f5f5;
   padding: 4px 8px;
   border-radius: 4px;
-  margin-bottom: 8px;
-  display: inline-block;
+  margin: 0;
+  z-index: 2;
 }
 
 .task-subtitle-container {
@@ -582,25 +642,30 @@ audio {
   display: block;
 }
 
-
-
 .task-description {
-  font-size: 14px;
-  color: #555;
-  line-height: 1.6;
-  margin-bottom: 12px;
-  max-height: 80px;
-  overflow-y: auto;
-  overflow-x: auto;
-  text-align: justify;
-  padding: 8px;
-  white-space: normal;
-  word-wrap: break-word;
-  scroll-behavior: smooth;
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  color: #666;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  max-height: none;
+  overflow-y: visible;
 }
 
 .task-description.expanded {
-  max-height: none;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.task-description h4 {
+  color: #333;
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .task-item:hover {
@@ -622,25 +687,44 @@ audio {
 }
 
 .task-full-text {
-  margin-top: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
   color: #666;
   font-size: 0.9em;
   white-space: pre-wrap;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
-.task-content {
-  margin-left: 10px;
-  flex-grow: 1;
+.task-full-text h4 {
+  color: #333;
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
 }
-
-
 
 .task-actions {
-  display: none; /*Removed button*/
+  display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
-  width: 100%;
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+
+}
+
+.button-group {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  margin: 10;
+  z-index: 2;
 }
 
 .copy-button,
@@ -658,11 +742,13 @@ audio {
 .copy-button {
   background: #4CAF50;
   color: white;
+  order: 2;
 }
 
 .email-button {
   background: #2196F3;
   color: white;
+  order: 3;
 }
 
 .email-container {
@@ -677,10 +763,6 @@ audio {
   border-radius: 4px;
   font-size: 0.9em;
 }
-
-
-
-
 
 .task-item .task-description-input,
 .task-item .task-full-text-input {
@@ -702,22 +784,25 @@ audio {
 }
 
 .expand-button {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
   background: transparent;
   border: 1px solid #ddd;
   padding: 4px 8px;
+  
   border-radius: 4px;
-  margin-top: 5px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+  order: 3;
 }
 
 .expand-button:hover {
   background: #f5f5f5;
-}
-
-.button-group {
-  display: flex;
-  gap: 8px;
-  margin-top: 5px;
+  transform: translateY(-1px);
 }
 
 .ai-assist-button {
@@ -728,15 +813,16 @@ audio {
   border-radius: 4px;
   cursor: pointer;
   display: flex;
-  align-items: center;
-  gap: 4px;
+  order: 4  ;
   font-size: 0.9em;
 }
 
 .ai-assist-button:hover {
   background: #3b8aea;
 }
-
+.task-item.expanded .ai-assist-button {
+  display: flex; /* Show AI button when expanded */
+}
 .delete-button {
   display: none; /*Removed button*/
   background: #ff4444;
@@ -767,13 +853,6 @@ audio {
 
 .copy-complete-button:hover {
   background: #45a049;
-}
-
-.task-actions {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
 }
 
 .email-action {
@@ -876,7 +955,7 @@ audio {
 .copy-all-button {
   width: 100%;
   padding: 10px;
-  margin: 10px 0;
+  margin:  20px 0;
   background: #2196F3;
   color: white;
   border: none;
