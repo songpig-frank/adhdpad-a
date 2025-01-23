@@ -790,16 +790,6 @@ function TaskListScreen() {
                 >
                   <div className="section-header">
                     <h4>Summary:</h4>
-                    <div className="section-metadata">
-                      <div className="username-display" data-tooltip="Created by John Doe">
-                        <span className="username-icon">👤</span>
-                      </div>
-                      {new Date(task.createdAt).toLocaleString('en-US', { 
-                        timeZone: 'America/Chicago',
-                        dateStyle: 'medium',
-                        timeStyle: 'short'
-                      })}
-                    </div>
                   </div>
                   {task.description}
                 </div>
@@ -812,16 +802,6 @@ function TaskListScreen() {
                   >
                     <div className="section-header">
                       <h4>Original Transcript:</h4>
-                      <div className="section-metadata">
-                        <div className="username-display" data-tooltip="Created by John Doe">
-                          <span className="username-icon">👤</span>
-                        </div>
-                        {new Date(task.createdAt).toLocaleString('en-US', { 
-                          timeZone: 'America/Chicago',
-                          dateStyle: 'medium',
-                          timeStyle: 'short'
-                        })}
-                      </div>
                     </div>
                     {task.text}
                   </div>
@@ -902,25 +882,34 @@ function TaskListScreen() {
                   className="action-button"
                   data-tooltip="Copy task details to clipboard"
                   onClick={() => {
-                    const attachmentsList = task.attachments?.map((att, index) => 
-                      att.type === 'url' ? 
-                        `${index + 1}. Link: ${att.content}` :
-                        `${index + 1}. File: ${att.name} (${(att.size / (1024 * 1024)).toFixed(2)}MB)`
-                    ).join('\n') || 'No attachments';
+                    const attachmentsList = task.attachments?.map((att, index) => {
+                      if (att.url) {
+                        return `${index + 1}. URL: ${att.url}`;
+                      } else if (att.content) {
+                        return `${index + 1}. Link: ${att.content}`;
+                      } else if (att.name) {
+                        return `${index + 1}. File: ${att.name} (${(att.size / (1024 * 1024)).toFixed(2)}MB)`;
+                      }
+                      return 'Unknown attachment type';
+                    }).join('\n') || 'No attachments';
 
                     const taskDetails = 
 `Task Details (ID: ${task.julianId})
 -------------------
 Title: ${task.title}
+
+Summary:
+${task.description}
+
+Original Transcript:
+${task.text}
+
 Created by: John Doe
 Date: ${new Date(task.createdAt).toLocaleString('en-US', { 
   timeZone: 'America/Chicago',
   dateStyle: 'medium',
   timeStyle: 'short'
 })}
-
-Summary:
-${task.description}
 
 Attachments:
 ${attachmentsList}`;
@@ -954,6 +943,10 @@ ${task.title}
 Summary
 -------
 ${task.description}
+
+Original Transcript
+-------------------
+${task.text}
 
 Attachments
 ----------
@@ -989,6 +982,9 @@ ${task.attachments?.map((att, index) => {
 
   <h2 style="color: #2c3e50; margin-top: 20px;">Summary</h2>
   <p style="font-size: 16px; line-height: 1.5; color: #34495e;">${task.description}</p>
+
+  <h2 style="color: #2c3e50; margin-top: 20px;">Original Transcript</h2>
+  <p style="font-size: 16px; line-height: 1.5; color: #34495e;">${task.text}</p>
 
   <h2 style="color: #2c3e50; margin-top: 20px;">Attachments</h2>
   <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
@@ -1066,9 +1062,24 @@ ${task.attachments?.map((att, index) => {
               >
                 Cancel
               </button>
-            </div>
-          </div>
-        </div>
+                  </div>
+                </div>
+                <div style="margin-top: 25px; border-top: 1px solid #ecf0f1; padding-top: 15px;">
+                  <div style="display: flex; gap: 15px; color: #7f8c8d; font-size: 14px;">
+                    <div>
+                      <span style="color: #2c3e50;">Created by:</span> John Doe
+                    </div>
+                    <div>
+                      <span style="color: #2c3e50;">Date:</span> 
+                      ${new Date(task.createdAt).toLocaleString('en-US', { 
+                        timeZone: 'America/Chicago',
+                        dateStyle: 'medium',
+                        timeStyle: 'short'
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
       )}
       {showAttachmentModal && (
         <div className="modal-overlay">
