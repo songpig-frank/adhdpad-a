@@ -1,6 +1,25 @@
 
 import { config } from './config';
 
+// Helper to enforce summary conciseness
+const truncateSummary = (text, originalText) => {
+  // Only truncate if absolutely necessary
+  if (text.length <= 250) return text;
+  
+  const maxChars = 250;
+  const maxWords = 35;
+  
+  // Truncate by words first
+  let truncated = text.split(/\s+/).slice(0, maxWords).join(' ');
+  
+  // Then by characters
+  if (truncated.length > maxChars) {
+    truncated = truncated.substring(0, maxChars).replace(/\s+\S*$/, '...');
+  }
+  
+  return truncated;
+};
+
 async function getDeepSeekTitle(text) {
   try {
     const response = await fetch(config.deepseek.endpoint, {
@@ -13,7 +32,15 @@ async function getDeepSeekTitle(text) {
         model: config.deepseek.model,
         messages: [{
           role: 'system',
-          content: 'Generate a concise title and brief summary for the following text.'
+          content: `Create a title (3-7 words) and summary that:
+1. Faithfully represents the original text's structure and flow
+2. Uses direct phrases from the text when possible
+3. Identifies key themes in order of importance
+4. Never adds new topics or interpretations
+
+Example format:
+Title: [Core Theme Identification]
+Summary: [Logical progression of main ideas using original language]`
         }, {
           role: 'user',
           content: text
@@ -32,9 +59,10 @@ async function getDeepSeekTitle(text) {
     const title = (lines.find(l => l.toLowerCase().includes('title:'))?.replace('Title:', '').trim() 
       || text.split('.')[0].trim() 
       || 'Untitled').replace(/^\*+\s*/, '');
-    const summary = (lines.find(l => l.toLowerCase().includes('summary:'))?.replace('Summary:', '').trim() 
+    let summary = (lines.find(l => l.toLowerCase().includes('summary:'))?.replace('Summary:', '').trim() 
       || text.substring(0, 100).trim() 
       || 'No summary available').replace(/^\*+\s*/, '');
+    summary = truncateSummary(summary, text) + ' 1*';
 
     return {
       title,
@@ -59,7 +87,15 @@ async function getOpenAITitle(text) {
       model: 'gpt-3.5-turbo',
       messages: [{
         role: 'system',
-        content: 'Generate a concise title and brief summary for the following text.'
+          content: `Create a title (3-7 words) and summary that:
+1. Maintains the original text's structure and key phrases
+2. Lists main ideas in their original sequence
+3. Preserves proportional emphasis between topics
+4. Avoids any new interpretations or concepts
+
+Example format:
+Title: [Primary Theme]
+Summary: [Chronological summary of core ideas]`
       }, {
         role: 'user',
         content: text
@@ -79,9 +115,10 @@ async function getOpenAITitle(text) {
   const title = lines.find(l => l.toLowerCase().includes('title:'))?.replace('Title:', '').trim() 
     || text.split('.')[0].trim() 
     || 'Untitled';
-  const summary = lines.find(l => l.toLowerCase().includes('summary:'))?.replace('Summary:', '').trim() 
+  let summary = lines.find(l => l.toLowerCase().includes('summary:'))?.replace('Summary:', '').trim() 
     || text.substring(0, 100).trim() 
     || 'No summary available';
+  summary = truncateSummary(summary, text) + ' 2*';
 
   return {
     title,
